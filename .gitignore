@@ -1,0 +1,32 @@
+# Genealogy data. kafkova.* is a live working tree, edited in Family Tree Builder and
+# re-exported; it is personal data and is not test input. The static fixtures the tests
+# do use live in tests/data/ and are committed.
+kafkova.ftb
+kafkova.ftb-shm
+kafkova.ftb-wal
+kafkova.ged
+*.ftb-shm
+*.ftb-wal
+
+# Environments
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Tooling caches and reports
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Local editor and agent settings
+.claude/settings.local.json
+.idea/
+.vscode/

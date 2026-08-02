@@ -1,0 +1,232 @@
+﻿0 HEAD
+1 GEDC
+2 VERS 5.5.1
+2 FORM LINEAGE-LINKED
+1 CHAR UTF-8
+1 LANG Czech
+1 SOUR MYHERITAGE
+2 NAME MyHeritage Family Tree Builder
+2 VERS 8.0.0.8640
+2 CORP MyHeritage.com
+1 DEST MYHERITAGE
+1 DATE 02 AUG 2026
+1 FILE Exported by MyHeritage.com from Sample in Sample Web Site
+0 @I1@ INDI
+1 NAME Šimon /Herda/
+2 GIVN Šimon
+2 SURN Herda
+2 NPFX starý
+1 SEX M
+1 BIRT
+2 DATE 7 OCT 1735
+2 PLAC Branná
+2 NOTE 8017/200
+1 DEAT Y
+2 DATE 19 MAR 1791
+2 PLAC Branná 13
+2 AGE 55
+2 CAUS stářím
+1 OCCU sedlák
+2 DATE ABT 1759
+1 RELI římskokatolické
+1 RESI
+2 ADDR
+3 ADR1 Branná 13
+3 CTRY Czechia
+1 EVEN
+2 TYPE Settlement
+2 PLAC Branná
+1 FAMS @F2@
+1 FAMC @F1@
+1 SOUR @S1@
+2 PAGE 8017/200
+2 QUAY 3
+2 DATA
+3 TEXT Matrika Branna, kniha 8017
+1 SOUR @S2@
+2 PAGE https://www.myheritage.cz/profile-ABC/simon-herda
+2 QUAY 3
+1 OBJE @M1@
+1 RIN MH:I1
+1 _UID 5B2147A7736B21CC2FA163E23BFA34F0
+0 @I2@ INDI
+1 NAME Anna /Kafková/
+2 GIVN Anna
+2 SURN Kafková
+2 _MARNM Herdová
+1 NAME Anička /Kafková/
+2 TYPE AKA
+1 SEX F
+1 BIRT
+2 DATE 1738
+1 DEAT
+2 DATE BEF 1799
+1 FAMS @F2@
+0 @I3@ INDI
+1 NAME Zbyněk /Herda/
+2 GIVN Zbyněk
+2 SURN Herda
+2 NICK Kuba
+1 SEX M
+1 BIRT
+2 DATE 1760
+1 DEAT
+2 DATE BET 1820 AND 1822
+1 FAMC @F2@
+1 FAMS @F3@
+1 SOUR @S2@
+2 QUAY 4
+2 DATA
+3 TEXT Jarmila Mat�
+4 CONC �jů a Zdenka
+0 @I4@ INDI
+1 NAME Marie /Matějů/
+2 GIVN Marie
+2 SURN Matějů
+1 SEX F
+1 BIRT
+2 DATE AFT 1765
+1 FAMS @F3@
+1 NOTE Poznamka radek jeden
+Poznamka radek dva
+0 @I5@ INDI
+1 NAME Josef /Herda/
+2 GIVN Josef
+2 SURN Herda
+1 SEX M
+1 BIRT
+2 DATE 1801
+1 DEAT
+2 DATE 1860
+1 CENS
+2 DATE FROM 2012 TO 2020
+2 AGE 12
+1 FAMC @F3@
+0 @I6@ INDI
+1 NAME Eva /Herdová/
+2 GIVN Eva
+2 SURN Herdová
+1 SEX F
+1 BIRT
+2 DATE 1950
+1 FAMC @F3@
+0 @I7@ INDI
+1 NAME Vít /Herda/
+2 GIVN Vít
+2 SURN Herda
+1 SEX M
+1 BIRT
+2 DATE 1695
+1 DEAT
+2 DATE 1742
+1 FAMS @F1@
+0 @I8@ INDI
+1 NAME Magdalena /Herdová/
+2 GIVN Magdalena
+2 SURN Herdová
+1 SEX F
+1 BIRT
+2 DATE 1704
+1 DEAT
+2 DATE 1772
+1 FAMS @F1@
+0 @I9@ INDI
+1 NAME Petr /Herda/
+2 GIVN Petr
+2 SURN Herda
+1 SEX M
+1 BIRT
+2 DATE 1737
+1 DEAT
+2 DATE 1801
+1 FAMC @F1@
+1 FAMS @F4@
+0 @I10@ INDI
+1 NAME Anežka /Herdová/
+2 GIVN Anežka
+2 SURN Herdová
+1 SEX F
+1 BIRT
+2 DATE 1765
+1 FAMC @F2@
+2 PEDI Foster
+0 @I11@ INDI
+1 NAME Tomáš /Herda/
+2 GIVN Tomáš
+2 SURN Herda
+1 SEX M
+1 BIRT
+2 DATE 1768
+1 FAMC @F2@
+2 PEDI Adopted
+0 @I12@ INDI
+1 NAME Nikdo /Sám/
+2 GIVN Nikdo
+2 SURN Sám
+1 SEX M
+1 BIRT
+2 DATE 1800
+2 PLAC Praha
+0 @I14@ INDI
+1 NAME Ondřej /Herda/
+2 GIVN Ondřej
+2 SURN Herda
+1 SEX M
+1 BIRT
+2 DATE 1770
+1 FAMC @F4@
+0 @I15@ INDI
+1 NAME Barbora /Kafková/
+2 GIVN Barbora
+2 SURN Kafková
+1 SEX F
+1 BIRT
+2 DATE 1740
+1 FAMS @F4@
+0 @F1@ FAM
+1 HUSB @I7@
+1 WIFE @I8@
+1 CHIL @I1@
+1 CHIL @I9@
+1 MARR
+2 DATE 1726
+2 PLAC Branná
+0 @F2@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+1 CHIL @I3@
+1 MARR
+2 DATE 13 FEB 1757
+2 PLAC Branná
+2 AGE 22
+2 NOTE 8041/111
+0 @F3@ FAM
+1 HUSB @I3@
+1 WIFE @I4@
+1 CHIL @I5@
+1 CHIL @I6@
+1 MARR
+2 DATE 1790
+1 DIV
+2 DATE 1795
+0 @F4@ FAM
+1 HUSB @I9@
+1 WIFE @I15@
+1 CHIL @I14@
+0 @S1@ SOUR
+1 TITL Matrika Branna
+1 AUTH Farni urad Branna
+1 PUBL SOA Plzen
+1 TEXT kniha 8017
+1 _TYPE Collection
+1 _MEDI 10147
+0 @S2@ SOUR
+1 TITL Papež Web Site
+1 AUTH Petr Papež
+1 _TYPE Smart Matching
+0 @M1@ OBJE
+1 FILE /pictures/simon.jpg
+1 TITL Portrét Šimona Herdy
+1 NOTE olej na plátně
+1 DATE 1780
+0 TRLR
