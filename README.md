@@ -1,5 +1,9 @@
 # ftb-mcp
 
+[![CI](https://github.com/mouchar/ftb-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/mouchar/ftb-mcp/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)](pyproject.toml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+
 A read-only MCP server exposing genealogy data from a MyHeritage **Family Tree Builder**
 (`.ftb`) file or a **GEDCOM** (`.ged`) export over HTTP.
 
@@ -196,6 +200,26 @@ date against them. `tests/test_live_files.py` uses them when present, for invari
 that the file opens, that no text decoded to a replacement character, that the
 relationship graph is reciprocal, that notes and media come back clean, and that every
 tool payload is JSON-serialisable. It skips when the files are absent.
+
+Those two files are gitignored: they are personal data, not test input. Clone the
+repository and the suite runs on the fixtures alone.
+
+### Continuous integration
+
+`ci.yml` runs ruff and the suite on Python 3.11 through 3.14, installing from `uv.lock`
+with `--frozen` so CI cannot silently resolve something the lockfile does not pin. It
+also regenerates the fixtures and fails if a byte changed, which catches the generator
+drifting away from the files the tests read.
+
+Dependabot proposes weekly updates for the `uv` and `github-actions` ecosystems. Patch
+and minor bumps are grouped into one pull request and merge themselves once CI is green;
+major bumps arrive individually and wait for review, because a passing suite only
+evidences the behaviour the tests already cover.
+
+## Licence
+
+[Apache License 2.0](LICENSE). The reverse-engineering notes below describe MyHeritage's
+file format; they are not affiliated with or endorsed by MyHeritage.
 
 ---
 

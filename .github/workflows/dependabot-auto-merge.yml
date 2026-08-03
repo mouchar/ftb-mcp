@@ -1,0 +1,44 @@
+name: Dependabot auto-merge
+
+# Queues Dependabot's routine updates for merge. GitHub holds them until the required
+# `ci` check on master passes, so a bump that breaks the suite stays open instead.
+#
+# Major bumps are never queued: a passing suite only proves the behaviour the tests
+# already cover, which is the wrong evidence for a breaking API change.
+
+on: pull_request
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # For a grouped pull request this is the highest update type in the group, so one
+      # major among several patches is enough to hold the whole PR back.
+      - name: Queue patch and minor updates
+        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Say why a major update was left alone
+        if: steps.metadata.outputs.update-type == 'version-update:semver-major'
+        run: |
+          gh pr comment "$PR_URL" --body \
+            "Left open for review: this is a major version update, and auto-merge is \
+            limited to patch and minor. A green suite only covers behaviour the tests \
+            already exercise, so please read the upstream changelog before merging."
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
