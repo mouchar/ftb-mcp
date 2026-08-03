@@ -21,10 +21,21 @@ from __future__ import annotations
 import html
 import re
 
-# Sentinel written by FTB into the *_search_date / sorted_date integer columns when a
-# date is unknown. Lower bounds additionally use a large negative value for "before X".
+# FTB has three ways of saying "there is no date here" in the *_search_date and
+# sorted_date integer columns, and they are not interchangeable:
+#
+#   999999999   unknown or absent
+#    99999999   open upper bound, written for AFT and FROM dates
+#   -99999999   open lower bound, written for BEF and TO dates
+#
+# Every one exceeds the magnitude of any real YYYYMMDD -- the largest in kafkova.ftb is
+# 20250127, and no value between 20250127 and 99999999 occurs -- so a single test on the
+# absolute value recognises all three. Reading 99999999 as a date is how "AFT 1904" came
+# to report an upper bound of the year 9999.
 UNKNOWN_DATE = 999999999
-_OPEN_LOWER_BOUND = -99999999
+OPEN_UPPER_BOUND = 99999999
+OPEN_LOWER_BOUND = -99999999
+_OPEN_MAGNITUDE = OPEN_UPPER_BOUND
 
 _TAG_RE = re.compile(r"<[^>]+>")
 _BREAK_RE = re.compile(r"<\s*(?:br\s*/?|/\s*p|/\s*div|/\s*li)\s*>", re.IGNORECASE)
@@ -171,8 +182,12 @@ def clean_text(raw: str | bytes | None) -> str:
 
 
 def split_ftb_date(value: int | None) -> dict[str, int | None]:
-    """Split a YYYYMMDD integer into parts, mapping FTB's unknown markers to None."""
-    if value is None or value == UNKNOWN_DATE or value <= _OPEN_LOWER_BOUND:
+    """Split a YYYYMMDD integer into parts, mapping FTB's unknown markers to None.
+
+    An open bound is unknown, not a date: "AFT 1904" has no upper year at all, and
+    saying 9999 would be inventing one.
+    """
+    if value is None or abs(value) >= _OPEN_MAGNITUDE:
         return {"year": None, "month": None, "day": None}
     negative = value < 0
     value = abs(value)

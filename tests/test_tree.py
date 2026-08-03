@@ -14,10 +14,10 @@ from ftb_mcp.graph import TreeIndex, fold
 # Sizes of the fixture. Change these only alongside tests/make_fixtures.py.
 PEOPLE = 15
 FAMILIES = 5
-# 34 fact rows: 30 belonging to live people, one soft-deleted, and three whose owner is
-# soft-deleted. Only the first 30 are part of the tree.
-INDIVIDUAL_FACTS = 30
-INDIVIDUAL_FACT_ROWS = 34
+# 35 fact rows: 31 belonging to live people, one soft-deleted, and three whose owner is
+# soft-deleted. Only the first 31 are part of the tree.
+INDIVIDUAL_FACTS = 31
+INDIVIDUAL_FACT_ROWS = 35
 FAMILY_FACTS = 5
 CONNECTIONS = 18  # 19 rows, one of them soft-deleted
 CITATIONS = 4  # plus one citing the soft-deleted person
@@ -52,6 +52,8 @@ class TestTreeInfo:
     def test_year_span_covers_the_oldest_and_newest_events(self, db):
         info = queries.tree_info(db)
         assert info["earliest_event_year"] == 1695
+        # 2020 is the newest real date. Eva's open-ended residence carries FTB's
+        # 99999999 "no upper bound", which is larger than any date and would win the MAX.
         assert info["latest_event_year"] == 2020
 
 
@@ -317,6 +319,13 @@ class TestFacts:
         assert birth["date"]["display"] == "BEF 1856"
         assert birth["date"]["year_from"] is None
         assert birth["date"]["year_to"] == 1856
+
+    def test_after_date_has_no_upper_bound(self, db):
+        """An open-ended date reports no upper year rather than inventing 9999."""
+        residence = queries.person_facts(db, [EVA], lang=20, tags=["RESI"])[EVA][0]
+        assert residence["date"]["display"] == "AFT 1904"
+        assert residence["date"]["year_from"] == 1904
+        assert residence["date"]["year_to"] is None
 
     def test_residence_addresses_are_decoded_not_raw_protobuf(self, db):
         facts = queries.person_facts(db, [SIMON, ZBYNEK], lang=20, tags=["RESI"])

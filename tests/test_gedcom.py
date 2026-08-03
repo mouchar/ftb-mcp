@@ -14,9 +14,8 @@ from mcp.server.mcpserver.exceptions import ToolError
 
 from ftb_mcp import queries, server
 from ftb_mcp.db import FtbDatabase
-from ftb_mcp.decode import UNKNOWN_DATE
+from ftb_mcp.decode import OPEN_LOWER_BOUND, OPEN_UPPER_BOUND, UNKNOWN_DATE, norm_date
 from ftb_mcp.gedcom_import import (
-    OPEN_LOWER_BOUND,
     GedcomImportError,
     encode_date,
     open_gedcom,
@@ -104,11 +103,13 @@ def test_before_date_has_an_open_lower_bound():
     assert sorted_date == 18559999
 
 
-def test_after_date_has_an_unknown_upper_bound():
+def test_after_date_has_an_open_upper_bound():
+    """FTB's own marker for "no upper bound", so both backends read the same."""
     _, sorted_date, lower, upper = encode_date("AFT 1904")
     assert lower == 19040000
-    assert upper == UNKNOWN_DATE
+    assert upper == OPEN_UPPER_BOUND
     assert sorted_date == 19040001
+    assert norm_date("AFT 1904", sorted_date, lower, upper)["year_to"] is None
 
 
 def test_between_date_spans_both_bounds():
@@ -125,7 +126,7 @@ def test_period_date_spans_both_bounds():
 def test_open_ended_period():
     _, _, lower, upper = encode_date("FROM 1900")
     assert lower == 19000000
-    assert upper == UNKNOWN_DATE
+    assert upper == OPEN_UPPER_BOUND
 
 
 def test_unparseable_date_keeps_its_text_and_reports_no_bounds():
@@ -141,8 +142,6 @@ def test_missing_date_is_unknown():
 
 def test_bounds_reach_norm_date_as_year_from_and_year_to():
     """The encoder's output has to make sense to the shared date normaliser."""
-    from ftb_mcp.decode import norm_date
-
     display, sorted_date, lower, upper = encode_date("BET 1943 AND 1944")
     date = norm_date(display, sorted_date, lower, upper)
     assert date["year_from"] == 1943

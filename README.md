@@ -154,9 +154,9 @@ after a first parse attempt has failed, so well-formed files are never rewritten
 - **Date qualifiers are normalised.** ged4py renders `BEF 1856` as `BEFORE 1856` and
   `ABT 1762` as `ABOUT 1762`, where FTB stores the short form. 182 of 4319 dates in
   `kafkova.ged`; the rest are byte-identical. `year_from`/`year_to` are unaffected.
-- **Open-ended upper bounds report no year.** For `AFT`/`FROM` dates the importer writes
-  the documented `999999999` unknown sentinel, so `year_to` is `null`. FTB itself writes
-  `99999999`, which the shared date decoder reports as year 9999.
+- **Open-ended bounds match FTB exactly.** For `AFT`/`FROM` dates the importer writes
+  FTB's own `99999999` "no upper bound", and `-99999999` below a `BEF` date, so `year_to`
+  and `year_from` read the same from either source.
 - **`language` becomes a no-op.** GEDCOM has one text language, taken from `HEAD.LANG`.
   Languages FTB has no number for are assigned one at or above 200 and registered with
   their real name and ISO code, so a Polish file is not labelled English.
@@ -343,7 +343,22 @@ Family facts: `MARR` 391, `DIV` 6.
 The parsed integer columns `sorted_date`, `lower_bound_search_date` and
 `upper_bound_search_date` (all `YYYYMMDD`) carry the same information in a far more usable
 form, so this server reads only field 1 for display and takes structured values from those
-columns. `999999999` means unknown; lower bounds can be large and negative for `BEF`.
+columns.
+
+Those columns have **three** distinct ways of saying "there is no date here", and reading
+any of them as a date invents one:
+
+| Value | Meaning | Written for |
+|---|---|---|
+| `999999999` | unknown or absent | a fact with no date at all |
+| `99999999` | no upper bound | `AFT` and `FROM` dates |
+| `-99999999` | no lower bound | `BEF` and `TO` dates |
+
+Each exceeds the magnitude of any real `YYYYMMDD` — the largest observed is `20250127`,
+and nothing falls between that and `99999999` — so one test on the absolute value
+recognises all three. Taking `99999999` at face value yields the year **9999**, which is
+larger than every real date and therefore wins any `MAX()`: it reported `AFT 1904` as
+having an upper bound of 9999, and put 9999 as a tree's latest event year.
 
 **2. `individual_fact_lang_data.header` is protobuf for `RESI` facts only** — 110 of 606
 non-empty headers in the sample. Field 1 is address line 1, field 2 the full address.

@@ -19,7 +19,14 @@ from __future__ import annotations
 from typing import Any
 
 from .db import FtbDatabase
-from .decode import clean_text, norm_date, pb_text, year_of
+from .decode import (
+    OPEN_UPPER_BOUND,
+    UNKNOWN_DATE,
+    clean_text,
+    norm_date,
+    pb_text,
+    year_of,
+)
 from .schema import (
     CHILD_ROLES,
     FACT_LABELS,
@@ -128,10 +135,14 @@ def tree_info(db: FtbDatabase) -> dict[str, Any]:
     }
     languages = db.project_languages()
 
+    # Both "no date" sentinels have to be discarded before MIN/MAX, or the span lands on
+    # one of them: an AFT date's upper bound of 99999999 is larger than any real date and
+    # would otherwise win every MAX. The `> 0` guard drops the negative open lower bound.
     span = db.query_one(
         f"""
-        SELECT MIN(NULLIF(f.lower_bound_search_date, 999999999)) AS earliest,
-               MAX(NULLIF(f.upper_bound_search_date, 999999999)) AS latest
+        SELECT MIN(NULLIF(f.lower_bound_search_date, {UNKNOWN_DATE})) AS earliest,
+               MAX(NULLIF(NULLIF(f.upper_bound_search_date, {UNKNOWN_DATE}),
+                          {OPEN_UPPER_BOUND})) AS latest
         FROM individual_fact_main_data f
         {LIVE_INDIVIDUAL_JOIN}
         WHERE f.delete_flag = 0 AND f.lower_bound_search_date > 0
@@ -795,14 +806,20 @@ def statistics(db: FtbDatabase, lang: int, metrics: list[str]) -> dict[str, Any]
         }
 
     if "facts" in metrics:
-        out["fact_frequency"] = {
-            fact_label(row["token"], row["fact_type"]): row["n"]
-            for row in db.query(
-                f"SELECT f.token, f.fact_type, COUNT(*) n FROM individual_fact_main_data f "
-                f"{LIVE_INDIVIDUAL_JOIN} WHERE f.delete_flag = 0 "
-                f"GROUP BY f.token, f.fact_type ORDER BY n DESC"
-            )
-        }
+        # Several (token, fact_type) pairs can share one label -- RESI/ADDR and
+        # RESI/EMAIL are both a Residence, EVEN/MARR and EVEN/Marriage both a Marriage --
+        # so the counts are summed per label. Keying a dict by label directly would let
+        # the last pair overwrite the others, which silently lost 78 facts on a real
+        # tree, reporting 65 residences as 1.
+        totals: dict[str, int] = {}
+        for row in db.query(
+            f"SELECT f.token, f.fact_type, COUNT(*) n FROM individual_fact_main_data f "
+            f"{LIVE_INDIVIDUAL_JOIN} WHERE f.delete_flag = 0 "
+            f"GROUP BY f.token, f.fact_type"
+        ):
+            label = fact_label(row["token"], row["fact_type"])
+            totals[label] = totals.get(label, 0) + row["n"]
+        out["fact_frequency"] = dict(sorted(totals.items(), key=lambda item: (-item[1], item[0])))
 
     return out
 

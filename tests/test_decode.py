@@ -9,6 +9,9 @@ from __future__ import annotations
 import pytest
 
 from ftb_mcp.decode import (
+    OPEN_LOWER_BOUND,
+    OPEN_UPPER_BOUND,
+    UNKNOWN_DATE,
     clean_text,
     norm_date,
     pb_fields,
@@ -28,6 +31,7 @@ DATE_1735 = "0A0A37204F43542031373335222D0801100018002007280A30C70D3800400048005
 DATE_1791 = "0A0B3139204D41522031373931222D0801100018002013280330FF0D380040004800500058BF843D60006800700078008001008801019001D6CBB355"
 DATE_BETWEEN = "0A11424554203230313220414E442032303230222C0805100018022000280030DC0F380040024800500058E40F6000680070007800800100880101900180A3F85F"
 DATE_BEFORE = "0A084245462031383536222D0801100118022000280030C00E380040004800500058BF843D60006800700078008001008801019001FC8FC058"
+DATE_AFTER = "0A084146542031393034222D0801100218022000280030F00E380040004800500058BF843D600068007000780080010088010190019B99EB5A"
 
 # Real rows from individual_fact_lang_data.header (RESI facts)
 ADDR_SHORT = "0A0D4272616E6EC3A120C48D2E3133"
@@ -110,6 +114,13 @@ class TestDates:
         assert result["year_from"] is None
         assert result["year_to"] == 1856
 
+    def test_after_date_has_open_upper_bound(self):
+        """FTB writes 99999999 for "no upper bound"; reading it as a date gives 9999."""
+        result = norm_date(blob(DATE_AFTER), 19040001, 19040000, 99999999)
+        assert result["display"] == "AFT 1904"
+        assert result["year_from"] == 1904
+        assert result["year_to"] is None, "an open bound is unknown, not the year 9999"
+
     def test_unknown_date_returns_none(self):
         assert norm_date("", 999999999, 999999999, 999999999) is None
 
@@ -119,6 +130,40 @@ class TestDates:
     def test_year_of_sentinel_is_none(self):
         assert year_of(999999999) is None
         assert year_of(17910319) == 1791
+
+
+class TestNoDateSentinels:
+    """FTB's three ways of saying "no date" must all decode to None, not to a year."""
+
+    def test_every_sentinel_is_unknown(self):
+        for sentinel in (UNKNOWN_DATE, OPEN_UPPER_BOUND, OPEN_LOWER_BOUND):
+            assert split_ftb_date(sentinel) == {"year": None, "month": None, "day": None}
+            assert year_of(sentinel) is None
+
+    def test_the_sentinels_are_the_values_ftb_writes(self):
+        assert (UNKNOWN_DATE, OPEN_UPPER_BOUND, OPEN_LOWER_BOUND) == (
+            999999999,
+            99999999,
+            -99999999,
+        )
+
+    def test_no_real_date_reaches_the_sentinel_magnitude(self):
+        """The test is on magnitude, so it must not swallow a plausible date."""
+        assert year_of(20250127) == 2025  # the latest real date in kafkova.ftb
+        assert year_of(99991231) == 9999  # absurd, but below the sentinel and so kept
+        assert year_of(-18000101) == -1800  # a B.C. date stays negative
+
+    def test_missing_value_is_unknown(self):
+        assert year_of(None) is None
+        assert split_ftb_date(None) == {"year": None, "month": None, "day": None}
+
+    def test_an_open_upper_bound_does_not_become_a_range_endpoint(self):
+        date = norm_date("AFT 1904", 19040001, 19040000, OPEN_UPPER_BOUND)
+        assert (date["year_from"], date["year_to"]) == (1904, None)
+
+    def test_an_open_lower_bound_does_not_become_a_range_endpoint(self):
+        date = norm_date("BEF 1856", 18559999, OPEN_LOWER_BOUND, 18560000)
+        assert (date["year_from"], date["year_to"]) == (None, 1856)
 
 
 class TestCleanText:

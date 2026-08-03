@@ -39,7 +39,7 @@ from ged4py.model import Record
 from ged4py.parser import GedcomReader, IntegrityError, ParserError
 
 from .db import FtbDatabase, FtbDatabaseError
-from .decode import UNKNOWN_DATE
+from .decode import OPEN_LOWER_BOUND, OPEN_UPPER_BOUND, UNKNOWN_DATE
 from .schema import (
     FACT_LABELS,
     ITEM_TYPE_FAMILY_FACT,
@@ -54,9 +54,6 @@ from .schema import (
 )
 
 log = logging.getLogger(__name__)
-
-# FTB's marker for "no lower bound", i.e. a BEF date. Mirrors decode._OPEN_LOWER_BOUND.
-OPEN_LOWER_BOUND = -99999999
 
 # A GEDCOM line: level, optional xref, tag. Matched as bytes so the pre-pass never has
 # to decode text in an encoding it has not established yet.
@@ -306,8 +303,9 @@ def encode_date(value: DateValue | str | None) -> tuple[str, int, int, int]:
     FTB stores a display string alongside three integers that carry the range
     semantics, and offsets ``sorted_date`` by one so an open-ended date sorts just
     outside its own bound -- "BEF 1856" sorts at 18559999, "AFT 1904" at 19040001.
-    Those conventions are reproduced here so a fact reads the same whichever file it
-    came from.
+    An open bound gets the sentinel FTB itself writes, ``OPEN_LOWER_BOUND`` below a BEF
+    date and ``OPEN_UPPER_BOUND`` above an AFT one. All of these conventions are
+    reproduced exactly, so a fact reads the same whichever file it came from.
 
     Unparseable dates keep their text and report no bounds, which is how FTB stores a
     date phrase too.
@@ -339,7 +337,7 @@ def encode_date(value: DateValue | str | None) -> tuple[str, int, int, int]:
 
     if kind in (DateValueTypes.AFTER, DateValueTypes.FROM):
         lower = _calendar_to_int(value.date)
-        return display, lower + 1, lower, UNKNOWN_DATE
+        return display, lower + 1, lower, OPEN_UPPER_BOUND
 
     # SIMPLE, ABOUT, CALCULATED, ESTIMATED, INTERPRETED: one date, no range.
     exact = _calendar_to_int(value.date)

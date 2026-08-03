@@ -55,6 +55,10 @@ DATE_BEFORE = bytes.fromhex(
     "0A084245462031383536222D0801100118022000280030C00E3800400048005000"
     "58BF843D60006800700078008001008801019001FC8FC058"
 )
+DATE_AFTER = bytes.fromhex(
+    "0A084146542031393034222D0801100218022000280030F00E3800400048005000"
+    "58BF843D600068007000780080010088010190019B99EB5A"
+)
 
 # individual_fact_lang_data.header for RESI facts -- protobuf, not text.
 ADDR_SHORT = bytes.fromhex("0A0D4272616E6EC3A120C48D2E3133")  # "Branná č.13"
@@ -69,6 +73,9 @@ PROJECT_LANGUAGES = bytes.fromhex("0A020014")
 
 UNKNOWN_DATE = 999999999
 OPEN_LOWER = -99999999
+# FTB's "no upper bound", written for AFT and FROM dates. Larger than any real date, so
+# anything that treats it as one reports the year 9999 and wins every MAX.
+OPEN_UPPER = 99999999
 
 CS, EN = 20, 0
 
@@ -166,6 +173,10 @@ FACTS = [
     (17, 5, "CENS", "", "12", DATE_BETWEEN, 20120001, 20120000, 20200000, 3, "", "", 0),
     (18, 5, "BURI", "", "", "", UNKNOWN_DATE, UNKNOWN_DATE, UNKNOWN_DATE, None, "", "", 0),
     (19, 6, "BIRT", "", "", "1950", 19500000, 19500000, 19500000, 3, "", "", 0),
+    # An open upper bound: "AFT 1904" has a lower year and no upper one at all. The
+    # sentinel is larger than every real date in the fixture, so anything that reads it
+    # as a date drags the tree's latest_event_year out to 9999.
+    (35, 6, "RESI", "", "", DATE_AFTER, 19040001, 19040000, OPEN_UPPER, None, "", "", 0),
     (20, 7, "BIRT", "", "", "1695", 16950000, 16950000, 16950000, 1, "", "", 0),
     (21, 7, "DEAT", "", "", "1742", 17420000, 17420000, 17420000, 1, "", "", 0),
     (22, 8, "BIRT", "", "", "1704", 17040000, 17040000, 17040000, 1, "", "", 0),
