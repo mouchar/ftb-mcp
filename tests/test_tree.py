@@ -14,9 +14,13 @@ from ftb_mcp.graph import TreeIndex, fold
 # Sizes of the fixture. Change these only alongside tests/make_fixtures.py.
 PEOPLE = 15
 FAMILIES = 5
-INDIVIDUAL_FACTS = 30  # 31 rows, one of them soft-deleted
+# 34 fact rows: 30 belonging to live people, one soft-deleted, and three whose owner is
+# soft-deleted. Only the first 30 are part of the tree.
+INDIVIDUAL_FACTS = 30
+INDIVIDUAL_FACT_ROWS = 34
 FAMILY_FACTS = 5
 CONNECTIONS = 18  # 19 rows, one of them soft-deleted
+CITATIONS = 4  # plus one citing the soft-deleted person
 
 # Fixture ids used by name, so a test failure names a person rather than a number.
 SIMON, ANNA, ZBYNEK, MARIE, JOSEF, EVA = 1, 2, 3, 4, 5, 6
@@ -39,7 +43,7 @@ class TestTreeInfo:
         assert counts["individual_facts"] == INDIVIDUAL_FACTS
         assert counts["family_facts"] == FAMILY_FACTS
         assert counts["sources"] == 3
-        assert counts["citations"] == 4
+        assert counts["citations"] == CITATIONS + 1
 
     def test_declares_english_and_czech(self, db):
         codes = [lang["code"] for lang in queries.tree_info(db)["languages"]]
@@ -75,7 +79,7 @@ class TestIndex:
         assert live == raw - 1
 
     def test_soft_deleted_fact_is_excluded(self, db):
-        assert db.scalar("SELECT COUNT(*) FROM individual_fact_main_data") == INDIVIDUAL_FACTS + 1
+        assert db.scalar("SELECT COUNT(*) FROM individual_fact_main_data") == INDIVIDUAL_FACT_ROWS
         tokens = {fact["gedcom_tag"] for fact in queries.person_facts(db, [SIMON], lang=20)[SIMON]}
         assert "CENS" not in tokens, "the soft-deleted census fact must not appear"
 
@@ -488,6 +492,79 @@ class TestStatistics:
         assert frequency["Birth"] == PEOPLE
         assert frequency["Settlement"] == 1
         assert "EVEN" not in frequency
+
+
+class TestSoftDeletedOwners:
+    """Facts of a deleted person must not reach any aggregate.
+
+    FTB deletes someone by flagging their `individual_main_data` row and leaves their
+    facts with `delete_flag = 0` of their own. Filtering only the fact table therefore
+    still counts them, and every assertion here failed before that was fixed: the
+    fixture's deleted person owns a birth in 1600, a death in 2099 and a citation, all
+    outside the range of anyone real.
+    """
+
+    def test_the_fixture_really_contains_the_trap(self, db):
+        """Without live rows owned by a deleted person, none of this can regress."""
+        owned = db.query(
+            "SELECT f.individual_fact_id FROM individual_fact_main_data f "
+            "JOIN individual_main_data i ON i.individual_id = f.individual_id "
+            "WHERE f.delete_flag = 0 AND i.delete_flag <> 0"
+        )
+        assert len(owned) == 3
+        cited = db.query(
+            "SELECT c.citation_id FROM citation_main_data c "
+            "JOIN token_on_item t ON t.token_on_item_id = c.external_token_on_item_id "
+            "JOIN individual_main_data i ON i.individual_id = t.entity_id "
+            "WHERE c.delete_flag = 0 AND t.item_type = 1 AND i.delete_flag <> 0"
+        )
+        assert len(cited) == 1
+
+    def test_fact_count_excludes_them(self, db):
+        assert queries.tree_info(db)["counts"]["individual_facts"] == INDIVIDUAL_FACTS
+
+    def test_year_span_is_not_widened_by_them(self, db):
+        """The span must describe the tree, not a person who was removed from it."""
+        info = queries.tree_info(db)
+        assert info["earliest_event_year"] == 1695, "1600 belongs to the deleted person"
+        assert info["latest_event_year"] == 2020, "2099 belongs to the deleted person"
+
+    def test_completeness_counts_the_same_population_as_its_denominator(self, db):
+        stats = queries.statistics(db, lang=20, metrics=["completeness"])["completeness"]
+        assert stats["individuals"] == PEOPLE
+        # Every live person has a birth; the deleted one's must not make it 16 of 15.
+        assert stats["with_known_birth_date"]["count"] == PEOPLE
+        assert stats["with_known_birth_date"]["percent"] == 100.0
+        # Two live people are cited, not three.
+        assert stats["with_source_citation"]["count"] == 2
+        for key in ("with_known_birth_date", "with_known_death_date", "with_any_place"):
+            assert stats[key]["count"] <= PEOPLE, f"{key} counts more people than exist"
+            assert stats[key]["percent"] <= 100
+
+    def test_fact_frequency_excludes_them(self, db):
+        frequency = queries.statistics(db, lang=20, metrics=["facts"])["fact_frequency"]
+        assert frequency["Birth"] == PEOPLE
+        assert sum(frequency.values()) == INDIVIDUAL_FACTS
+
+    def test_lifespans_exclude_them(self, db):
+        spans = queries.statistics(db, lang=20, metrics=["lifespans"])["lifespans"]
+        assert spans["sample_size"] == 8, "the deleted person's 499-year life must not count"
+
+    def test_place_event_counts_exclude_them(self, db):
+        """Both of the deleted person's facts sit in Praha, which would read 11 not 9."""
+        praha = next(p for p in queries.search_places(db, 20, "Praha", 5) if p["place"] == "Praha")
+        assert praha["event_count"] == 9  # 7 individual facts + 2 family facts
+
+    def test_a_deleted_person_cannot_be_reached(self, index: TreeIndex):
+        """The index is the gate: it never loads them, so no tool can name them.
+
+        `queries.person_facts` itself is not scoped to live owners -- it answers about
+        the ids it is given, and every caller takes those from the index, which the
+        server validates with `_person_or_error` before querying.
+        """
+        assert DELETED not in index.people
+        assert not index.search(last_name="Duch")
+        assert index.get(DELETED) is None
 
 
 class TestLanguages:

@@ -242,8 +242,15 @@ FTB uses a consistent three-layer pattern:
 - `*_connection` — many-to-many joins
 
 Soft deletion is pervasive: nearly every table has `delete_flag`, and rows with
-`delete_flag = 1` must be filtered out. `kafkova.ftb` has two soft-deleted family
-connections that would otherwise appear as phantom relatives.
+`delete_flag = 1` must be filtered out. Soft-deleted family connections would otherwise
+appear as phantom relatives.
+
+**It is also two levels deep, which is easy to miss.** FTB deletes a person by flagging
+their `individual_main_data` row and leaves the facts, citations and media hanging off
+them with `delete_flag = 0` of their own. Filtering only the child table therefore still
+counts data belonging to someone who is no longer in the tree — and if a numerator does
+that while its denominator does not, the result can exceed 100% of the tree. Any
+aggregate over facts has to join back to the owner and check its flag too.
 
 ### Languages
 

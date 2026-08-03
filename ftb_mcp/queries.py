@@ -1,9 +1,13 @@
 """SQL against the FTB schema. The only module that knows table and column names.
 
-Two conventions run through every query here:
+Three conventions run through every query here:
 
-* ``delete_flag = 0`` -- FTB soft-deletes. kafkova.ftb has two soft-deleted family
-  connections that would otherwise show up as phantom relatives.
+* ``delete_flag = 0`` -- FTB soft-deletes. Soft-deleted family connections would
+  otherwise show up as phantom relatives.
+* Soft deletion is two levels deep, so an aggregate over facts also joins back to the
+  owning individual or family and checks *its* flag. Deleting a person leaves their
+  facts with ``delete_flag = 0`` of their own, so filtering the fact table alone counts
+  events belonging to people who are no longer in the tree. See LIVE_INDIVIDUAL_JOIN.
 * Language ranking -- text lives in ``*_lang_data`` tables keyed by ``data_language``.
   Rows are ranked by the caller's preferred language, then Czech, then English, then
   anything, and the winner is taken with ROW_NUMBER(). Every text result reports the
@@ -53,17 +57,35 @@ places AS (
 )
 """
 
+# Soft deletion is two levels deep. FTB deletes a person by flagging their
+# individual_main_data row and leaves the facts hanging off them with delete_flag = 0 of
+# their own, so `WHERE delete_flag = 0` on the fact table alone still counts the events
+# of people the author removed. Every aggregate over facts joins back to the owner with
+# one of these, which expect the fact table to be aliased `f`.
+#
+# kafkova.ftb has 360 soft-deleted individuals holding 866 facts between them. Counting
+# those inflated the completeness metric past 100% of the tree, and pinned the reported
+# earliest event year on a person who is no longer in it.
+LIVE_INDIVIDUAL_JOIN = (
+    "JOIN individual_main_data owner "
+    "ON owner.individual_id = f.individual_id AND owner.delete_flag = 0"
+)
+LIVE_FAMILY_JOIN = (
+    "JOIN family_main_data owner ON owner.family_id = f.family_id AND owner.delete_flag = 0"
+)
+
 # Earliest birth-ish and death-ish dates per individual, ignoring unknown sentinels.
-VITALS_CTE = """
+VITALS_CTE = f"""
 vitals AS (
-    SELECT individual_id,
-           MIN(CASE WHEN token IN ('BIRT','CHR','BAPM') AND sorted_date <> 999999999
-                    THEN sorted_date END) AS birth_sd,
-           MIN(CASE WHEN token IN ('DEAT','BURI') AND sorted_date <> 999999999
-                    THEN sorted_date END) AS death_sd
-    FROM individual_fact_main_data
-    WHERE delete_flag = 0
-    GROUP BY individual_id
+    SELECT f.individual_id,
+           MIN(CASE WHEN f.token IN ('BIRT','CHR','BAPM') AND f.sorted_date <> 999999999
+                    THEN f.sorted_date END) AS birth_sd,
+           MIN(CASE WHEN f.token IN ('DEAT','BURI') AND f.sorted_date <> 999999999
+                    THEN f.sorted_date END) AS death_sd
+    FROM individual_fact_main_data f
+    {LIVE_INDIVIDUAL_JOIN}
+    WHERE f.delete_flag = 0
+    GROUP BY f.individual_id
 )
 """
 
@@ -107,11 +129,12 @@ def tree_info(db: FtbDatabase) -> dict[str, Any]:
     languages = db.project_languages()
 
     span = db.query_one(
-        """
-        SELECT MIN(NULLIF(lower_bound_search_date, 999999999)) AS earliest,
-               MAX(NULLIF(upper_bound_search_date, 999999999)) AS latest
-        FROM individual_fact_main_data
-        WHERE delete_flag = 0 AND lower_bound_search_date > 0
+        f"""
+        SELECT MIN(NULLIF(f.lower_bound_search_date, 999999999)) AS earliest,
+               MAX(NULLIF(f.upper_bound_search_date, 999999999)) AS latest
+        FROM individual_fact_main_data f
+        {LIVE_INDIVIDUAL_JOIN}
+        WHERE f.delete_flag = 0 AND f.lower_bound_search_date > 0
         """
     )
 
@@ -132,8 +155,16 @@ def tree_info(db: FtbDatabase) -> dict[str, Any]:
         "counts": {
             "individuals": db.count("individual_main_data"),
             "families": db.count("family_main_data"),
-            "individual_facts": db.count("individual_fact_main_data"),
-            "family_facts": db.count("family_fact_main_data"),
+            # Facts of a deleted person are not part of the tree any more than the
+            # person is, so they are excluded here as everywhere else.
+            "individual_facts": db.scalar(
+                f"SELECT COUNT(*) FROM individual_fact_main_data f "
+                f"{LIVE_INDIVIDUAL_JOIN} WHERE f.delete_flag = 0"
+            ),
+            "family_facts": db.scalar(
+                f"SELECT COUNT(*) FROM family_fact_main_data f "
+                f"{LIVE_FAMILY_JOIN} WHERE f.delete_flag = 0"
+            ),
             "places": db.scalar("SELECT COUNT(*) FROM places_main_data"),
             "notes": db.count("note_main_data"),
             "sources": db.count("source_main_data"),
@@ -569,8 +600,10 @@ def search_places(
     WITH {PLACES_CTE}
     SELECT p.place_id, p.place, p.data_language AS text_language,
            (SELECT COUNT(*) FROM individual_fact_main_data f
+             {LIVE_INDIVIDUAL_JOIN}
              WHERE f.place_id = p.place_id AND f.delete_flag = 0) AS individual_event_count,
            (SELECT COUNT(*) FROM family_fact_main_data f
+             {LIVE_FAMILY_JOIN}
              WHERE f.place_id = p.place_id AND f.delete_flag = 0) AS family_event_count
     FROM places p
     WHERE {where}
@@ -724,23 +757,30 @@ def statistics(db: FtbDatabase, lang: int, metrics: list[str]) -> dict[str, Any]
         out["top_places"] = search_places(db, lang, None, 15)
 
     if "completeness" in metrics:
+        # Every numerator counts the same population as the denominator: people who are
+        # still in the tree. Counting a deleted person's birth record against a total
+        # that excludes them is what let this report 112% of a tree as documented.
         total = db.count("individual_main_data")
-        with_birth = db.scalar(
-            "SELECT COUNT(DISTINCT individual_id) FROM individual_fact_main_data "
-            "WHERE delete_flag = 0 AND token IN ('BIRT','CHR','BAPM') AND sorted_date <> 999999999"
-        )
-        with_death = db.scalar(
-            "SELECT COUNT(DISTINCT individual_id) FROM individual_fact_main_data "
-            "WHERE delete_flag = 0 AND token IN ('DEAT','BURI') AND sorted_date <> 999999999"
-        )
-        with_place = db.scalar(
-            "SELECT COUNT(DISTINCT individual_id) FROM individual_fact_main_data "
-            "WHERE delete_flag = 0 AND place_id IS NOT NULL"
-        )
+
+        def documented(condition: str) -> int:
+            return int(
+                db.scalar(
+                    f"SELECT COUNT(DISTINCT f.individual_id) FROM individual_fact_main_data f "
+                    f"{LIVE_INDIVIDUAL_JOIN} WHERE f.delete_flag = 0 AND {condition}"
+                )
+                or 0
+            )
+
+        with_birth = documented("f.token IN ('BIRT','CHR','BAPM') AND f.sorted_date <> 999999999")
+        with_death = documented("f.token IN ('DEAT','BURI') AND f.sorted_date <> 999999999")
+        with_place = documented("f.place_id IS NOT NULL")
         cited = db.scalar(
             "SELECT COUNT(DISTINCT t.entity_id) FROM citation_main_data c "
             "JOIN token_on_item t ON t.token_on_item_id = c.external_token_on_item_id "
-            "WHERE c.delete_flag = 0 AND t.item_type = 1"
+            "JOIN individual_main_data owner "
+            "  ON owner.individual_id = t.entity_id AND owner.delete_flag = 0 "
+            "WHERE c.delete_flag = 0 AND t.item_type = :itype",
+            {"itype": ITEM_TYPE_INDIVIDUAL},
         )
 
         def pct(part: int) -> float:
@@ -758,8 +798,9 @@ def statistics(db: FtbDatabase, lang: int, metrics: list[str]) -> dict[str, Any]
         out["fact_frequency"] = {
             fact_label(row["token"], row["fact_type"]): row["n"]
             for row in db.query(
-                "SELECT token, fact_type, COUNT(*) n FROM individual_fact_main_data "
-                "WHERE delete_flag = 0 GROUP BY token, fact_type ORDER BY n DESC"
+                f"SELECT f.token, f.fact_type, COUNT(*) n FROM individual_fact_main_data f "
+                f"{LIVE_INDIVIDUAL_JOIN} WHERE f.delete_flag = 0 "
+                f"GROUP BY f.token, f.fact_type ORDER BY n DESC"
             )
         }
 

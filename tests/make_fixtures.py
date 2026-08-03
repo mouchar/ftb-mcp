@@ -102,8 +102,12 @@ PEOPLE = [
 # An English name row as well, so the language fallback has something to fall back to.
 ENGLISH_NAMES = {1: ("Simon", "Herda"), 2: ("Anna", "Kafkova")}
 
-# Soft-deleted, so every query must ignore them.
+# Soft-deleted, so every query must ignore them. Facts and a citation hang off this
+# person below: FTB leaves those rows with delete_flag = 0 of their own, so an aggregate
+# that filters only the fact table still counts them. Without a deleted person who owns
+# data, that whole class of bug is invisible to the suite.
 DELETED_PEOPLE = [(99, "M", 2, "Smazaný", "Duch", "", {})]
+DELETED_PERSON = 99
 
 # id, status, husband, wife, [(child, role)]
 # Roles: 2 husband, 3 wife, 5 natural child, 6 foster child, 7 adopted child.
@@ -174,6 +178,16 @@ FACTS = [
     (29, 14, "BIRT", "", "", "1770", 17700000, 17700000, 17700000, 1, "", "", 0),
     (30, 15, "BIRT", "", "", "1740", 17400000, 17400000, 17400000, 1, "", "", 0),
     (31, 13, "BIRT", "", "", "1980", 19800000, 19800000, 19800000, 3, "", "", 0),
+    # Facts of the soft-deleted person. The fact rows are live; only their owner is
+    # deleted, which is exactly how FTB leaves them.
+    #
+    # The birth predates and the census postdates every real person, so counting these
+    # visibly widens the tree's reported span. Birth and death are also a *plausible*
+    # 60 years apart, so they would pass the lifespan plausibility guard and land in the
+    # average -- an implausible span would be filtered out and prove nothing.
+    (32, 99, "BIRT", "", "", "1600", 16000000, 16000000, 16000000, 3, "", "", 0),
+    (33, 99, "DEAT", "", "", "1660", 16600000, 16600000, 16600000, 3, "", "", 0),
+    (34, 99, "CENS", "", "", "2099", 20990000, 20990000, 20990000, 3, "", "", 0),
 ]
 
 # id, family, token, fact_type, spouse_age, date, sorted, lower, upper, place
@@ -226,6 +240,9 @@ CITATIONS = [
     (2, 2, "https://www.myheritage.cz/profile-ABC/simon-herda", 3, "", "", ITEM_INDIVIDUAL, 1),
     (3, 1, "8053/131", -1, "DEAT", "z&aacute;pis o úmrtí", ITEM_INDIVIDUAL, 1),
     (4, 3, "hrob 12", 4, "", "", ITEM_INDIVIDUAL, 3),
+    # Cites the soft-deleted person, so "share of people with a source" has to reach
+    # past the citation to its subject before counting it.
+    (5, 3, "hrob 99", 3, "", "", ITEM_INDIVIDUAL, DELETED_PERSON),
 ]
 
 # id, title, description, date, sorted_date, place, linked individual
