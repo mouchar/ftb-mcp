@@ -46,13 +46,9 @@ jobs:
           enable-cache: true
       - run: uv sync --extra dev
       - name: pytest
+        # tests/test_fixtures.py checks the committed fixtures against their generator,
+        # so no separate regeneration step is needed here.
         run: uv run pytest -q
-      - name: Fixtures are reproducible
-        # The fixtures are committed; regenerating them must not change a byte, or the
-        # generator and the files under test have drifted apart.
-        run: |
-          uv run python -m tests.make_fixtures
-          git diff --exit-code -- tests/data
 
   # Single stable context for the branch protection rule, so the required check does
   # not have to name every matrix leg.

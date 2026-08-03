@@ -1,0 +1,13 @@
+# Later rules win, so the catch-all comes first and the exceptions follow it.
+* text=auto
+
+# The GEDCOM fixture's CRLF line endings are part of what it tests: GEDCOM requires
+# CRLF, and one of the two defects the fixture reproduces is a bare LF among them.
+# Without -text, a commit or checkout under core.autocrlf=input rewrites every line
+# ending and the fixture stops encoding the distinction it exists for.
+*.ged -text
+
+# SQLite databases. Marked binary so git neither normalises nor tries to diff them.
+*.ftb binary
+*.ftb-shm binary
+*.ftb-wal binary
