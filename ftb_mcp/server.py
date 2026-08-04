@@ -639,7 +639,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    logging.basicConfig(level=args.log_level.upper(), format="%(levelname)s %(name)s: %(message)s")
+    logging.basicConfig(
+        level=args.log_level.upper(),
+        format="%(levelname)s %(name)s: %(message)s",
+        stream=sys.stderr,
+        force=True,
+    )
 
     if args.db_path and args.gedcom_path:
         print("error: pass either --db-path or --gedcom-path, not both", file=sys.stderr)
