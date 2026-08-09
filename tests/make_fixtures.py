@@ -60,6 +60,14 @@ DATE_AFTER = bytes.fromhex(
     "58BF843D600068007000780080010088010190019B99EB5A"
 )
 
+# A row that lost its display string but kept the nested date: field 1 is present and
+# empty, while field 4 still holds 4 MAY 1772. Every integer column reads as unknown, so
+# the blob is the only surviving copy. Captured from kafkova.ftb.
+DATE_LOST_DISPLAY = bytes.fromhex(
+    "0A00222D0801100018002004280530EC0D3800400048005000"
+    "58BF843D60006800700078008001008801019001B0DEBF54"
+)
+
 # individual_fact_lang_data.header for RESI facts -- protobuf, not text.
 ADDR_SHORT = bytes.fromhex("0A0D4272616E6EC3A120C48D2E3133")  # "Branná č.13"
 ADDR_LONG = bytes.fromhex(
@@ -185,6 +193,23 @@ FACTS = [
     (25, 9, "DEAT", "", "", "1801", 18010000, 18010000, 18010000, 1, "", "", 0),
     (26, 10, "BIRT", "", "", "1765", 17650000, 17650000, 17650000, 1, "", "", 0),
     (27, 11, "BIRT", "", "", "1768", 17680000, 17680000, 17680000, 1, "", "", 0),
+    # Death date survives only inside the blob: sorted_date and both bounds are the
+    # unknown sentinel, so any reader that trusts the columns alone reports no date.
+    (
+        36,
+        11,
+        "DEAT",
+        "",
+        "",
+        DATE_LOST_DISPLAY,
+        UNKNOWN_DATE,
+        UNKNOWN_DATE,
+        UNKNOWN_DATE,
+        1,
+        "",
+        "",
+        0,
+    ),
     (28, 12, "BIRT", "", "", "1800", 18000000, 18000000, 18000000, 3, "", "", 0),
     (29, 14, "BIRT", "", "", "1770", 17700000, 17700000, 17700000, 1, "", "", 0),
     (30, 15, "BIRT", "", "", "1740", 17400000, 17400000, 17400000, 1, "", "", 0),

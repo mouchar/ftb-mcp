@@ -37,6 +37,18 @@ OPEN_UPPER_BOUND = 99999999
 OPEN_LOWER_BOUND = -99999999
 _OPEN_MAGNITUDE = OPEN_UPPER_BOUND
 
+# Alongside the display string, every date blob carries a nested struct (field 4)
+# holding the date in pieces: {2: qualifier, 4: day, 5: month, 6: year}. A year of
+# 999999 there means "no structured date". The qualifier codes were read off rows
+# whose display string names the qualifier outright ("ABT 1860" -> 3, "BEF 1856" -> 1).
+_EMBEDDED_DAY = 4
+_EMBEDDED_MONTH = 5
+_EMBEDDED_YEAR = 6
+_EMBEDDED_QUALIFIER = 2
+_EMBEDDED_NO_YEAR = 999999
+_QUALIFIER_PREFIX = {1: "BEF", 2: "AFT", 3: "ABT", 4: "EST"}
+_GED_MONTHS = ("JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC")
+
 _TAG_RE = re.compile(r"<[^>]+>")
 _BREAK_RE = re.compile(r"<\s*(?:br\s*/?|/\s*p|/\s*div|/\s*li)\s*>", re.IGNORECASE)
 _WS_RE = re.compile(r"[ \t\r\f\v]+")
@@ -148,7 +160,13 @@ def pb_text(value: str | bytes | None, fields: tuple[int, ...] = (1, 2)) -> str:
             text = entry.decode("utf-8", "replace").strip()
             if text and text not in parts:
                 parts.append(text)
-    return ", ".join(parts) if parts else _printable(raw.decode("utf-8", "replace"))
+
+    # A message that parsed cleanly is authoritative: if the requested fields hold no
+    # text, the answer is "no text". Dumping the raw buffer here used to surface the
+    # neighbouring binary fields as gibberish for rows whose field 1 is an empty
+    # string -- a date would come back as "- (08@HPX=`hpxT" instead of empty.
+    # The malformed case still degrades to printable characters, above.
+    return ", ".join(parts)
 
 
 # ------------------------------------------------------------------------------ HTML
@@ -204,6 +222,52 @@ def year_of(value: int | None) -> int | None:
     return split_ftb_date(value)["year"]
 
 
+def pb_date_parts(value: str | bytes | None) -> dict[str, object] | None:
+    """Recover a date from the nested struct inside a date blob, or None.
+
+    This is the copy of last resort. Normally the integer columns carry the date and
+    this struct merely agrees with them, but a handful of rows lost both the display
+    string and every integer column while keeping the struct intact -- the date is
+    still right there, just nowhere the ordinary readers look.
+    """
+    raw = to_bytes(value)
+    if not looks_like_protobuf(raw):
+        return None
+    try:
+        nested = next((v for v in pb_fields(raw).get(4, []) if isinstance(v, bytes)), None)
+        inner = pb_fields(nested) if nested else None
+    except ValueError:
+        return None
+    if not inner:
+        return None
+
+    def field(number: int) -> int:
+        values = inner.get(number, [])
+        return values[0] if values and isinstance(values[0], int) else 0
+
+    year = field(_EMBEDDED_YEAR)
+    if not year or year >= _EMBEDDED_NO_YEAR:
+        return None
+    month, day = field(_EMBEDDED_MONTH), field(_EMBEDDED_DAY)
+    return {
+        "year": year,
+        "month": month if 1 <= month <= 12 else None,
+        "day": day if 1 <= day <= 31 else None,
+        "qualifier": _QUALIFIER_PREFIX.get(field(_EMBEDDED_QUALIFIER), ""),
+    }
+
+
+def format_date_parts(parts: dict[str, object]) -> str:
+    """Render recovered date parts the way FTB would have written them."""
+    words = [w for w in (parts["qualifier"],) if w]
+    if parts["day"] and parts["month"]:
+        words.append(f"{parts['day']} {_GED_MONTHS[parts['month'] - 1]}")
+    elif parts["month"]:
+        words.append(_GED_MONTHS[parts["month"] - 1])
+    words.append(str(parts["year"]))
+    return " ".join(words)
+
+
 def norm_date(
     raw: str | bytes | None,
     sorted_date: int | None = None,
@@ -224,6 +288,17 @@ def norm_date(
     parts = split_ftb_date(sorted_date)
     lower, upper = split_ftb_date(lower_bound), split_ftb_date(upper_bound)
     is_range = lower["year"] is not None and lower["year"] != upper["year"]
+    sort_key = sorted_date if sorted_date not in (None, UNKNOWN_DATE) else None
+
+    # Nothing readable so far, but the blob's nested struct may still hold the date.
+    if not display and parts["year"] is None:
+        embedded = pb_date_parts(raw)
+        if embedded:
+            display = format_date_parts(embedded)
+            parts = {key: embedded[key] for key in ("year", "month", "day")}
+            sort_key = (
+                embedded["year"] * 10000 + (embedded["month"] or 0) * 100 + (embedded["day"] or 0)
+            )
 
     if not display and parts["year"] is None and lower["year"] is None and upper["year"] is None:
         return None
@@ -236,5 +311,5 @@ def norm_date(
         "year_from": lower["year"],
         "year_to": upper["year"],
         "is_range": is_range,
-        "sort_key": sorted_date if sorted_date not in (None, UNKNOWN_DATE) else None,
+        "sort_key": sort_key,
     }

@@ -14,10 +14,10 @@ from ftb_mcp.graph import TreeIndex, fold
 # Sizes of the fixture. Change these only alongside tests/make_fixtures.py.
 PEOPLE = 15
 FAMILIES = 5
-# 35 fact rows: 31 belonging to live people, one soft-deleted, and three whose owner is
-# soft-deleted. Only the first 31 are part of the tree.
-INDIVIDUAL_FACTS = 31
-INDIVIDUAL_FACT_ROWS = 35
+# 36 fact rows: 32 belonging to live people, one soft-deleted, and three whose owner is
+# soft-deleted. Only the first 32 are part of the tree.
+INDIVIDUAL_FACTS = 32
+INDIVIDUAL_FACT_ROWS = 36
 FAMILY_FACTS = 5
 CONNECTIONS = 18  # 19 rows, one of them soft-deleted
 CITATIONS = 4  # plus one citing the soft-deleted person
@@ -87,6 +87,31 @@ class TestIndex:
 
     def test_undocumented_living_status_degrades_legibly(self, index: TreeIndex):
         assert index.people[ZAHADA].summary()["living_status"] == "unknown (7)"
+
+    def test_vital_year_recovered_when_only_the_blob_has_it(self, db, index: TreeIndex):
+        """Tomáš's death sits in the blob alone; the columns all read unknown."""
+        columns = db.query(
+            "SELECT sorted_date, lower_bound_search_date, upper_bound_search_date "
+            "FROM individual_fact_main_data WHERE individual_id = ? AND token = 'DEAT'",
+            (TOMAS,),
+        )
+        assert [dict(row) for row in columns] == [
+            {
+                "sorted_date": 999999999,
+                "lower_bound_search_date": 999999999,
+                "upper_bound_search_date": 999999999,
+            }
+        ], "fixture must keep this date only in the blob, or the test proves nothing"
+        assert index.people[TOMAS].death_year == 1772
+
+    def test_recovered_year_is_searchable_by_range(self, index: TreeIndex):
+        found = index.search(death_year_from=1772, death_year_to=1772)
+        assert TOMAS in {person.person_id for person in found}
+
+    def test_columns_still_win_over_the_blob(self, index: TreeIndex):
+        """Recovery fills gaps; it must never override a year the columns supply."""
+        assert index.people[SIMON].birth_year == 1735
+        assert index.people[SIMON].death_year == 1791
 
 
 class TestSearch:
