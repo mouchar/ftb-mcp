@@ -2,8 +2,6 @@
 # re-exported; it is personal data and is not test input. The static fixtures the tests
 # do use live in tests/data/ and are committed.
 kafkova.ftb
-kafkova.ftb-shm
-kafkova.ftb-wal
 kafkova.ged
 *.ftb-shm
 *.ftb-wal
@@ -27,6 +25,7 @@ dist/
 htmlcov/
 
 # Local editor and agent settings
-.claude/settings.local.json
+.mcp.json
+.claude/
 .idea/
 .vscode/
