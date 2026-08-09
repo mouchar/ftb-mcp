@@ -345,6 +345,15 @@ The parsed integer columns `sorted_date`, `lower_bound_search_date` and
 form, so this server reads only field 1 for display and takes structured values from those
 columns.
 
+**Field 4 is deliberately never used as a date source**, even when field 1 and all three
+columns are empty. It is the editor's working copy rather than the stored fact, and it can
+hold a date belonging to an entirely different record. In `kafkova.ftb` twelve facts that
+record no date carry one there, and four of those are demonstrably wrong — three repeat
+the person's own birth date as their death date, and one puts a daughter's birth date on
+her mother. A fact with an empty display string and sentinel columns has **no date**; that
+is the answer. Reading field 4 anyway produced 29 impossible parent/child chronologies —
+posthumous children, marriages after death — in a full sweep of the tree.
+
 Those columns have **three** distinct ways of saying "there is no date here", and reading
 any of them as a date invents one:
 

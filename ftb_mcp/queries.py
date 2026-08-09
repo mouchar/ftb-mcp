@@ -97,21 +97,6 @@ vitals AS (
 """
 
 
-# VITALS_CTE reads sorted_date, so it cannot see the handful of facts whose date
-# survives only inside the blob's nested struct -- their sorted_date is the unknown
-# sentinel. This pulls just those rows so the caller can decode and fill the gap.
-# Deliberately narrow: 20 rows in kafkova.ftb, versus 5 725 individual fact dates.
-RECOVERABLE_VITALS_SQL = f"""
-SELECT f.individual_id, f.token, f.date
-FROM individual_fact_main_data f
-{LIVE_INDIVIDUAL_JOIN}
-WHERE f.delete_flag = 0
-  AND f.sorted_date = {UNKNOWN_DATE}
-  AND f.token IN ('BIRT','CHR','BAPM','DEAT','BURI')
-  AND f.date <> ''
-"""
-
-
 def language_code(value: int | None) -> str | None:
     """Map an FTB language number to an ISO-ish code."""
     if value is None:

@@ -20,10 +20,9 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .db import FtbDatabase
-from .decode import pb_date_parts, year_of
-from .queries import LANG_RANK, RECOVERABLE_VITALS_SQL, VITALS_CTE, language_code
+from .decode import year_of
+from .queries import LANG_RANK, VITALS_CTE, language_code
 from .schema import (
-    BIRTH_TOKENS,
     CHILD_ROLES,
     GENDER,
     LIVING_STATUS,
@@ -110,26 +109,7 @@ class TreeIndex:
 
     # -------------------------------------------------------------------------- load
 
-    def _recovered_vitals(self) -> dict[int, dict[str, int]]:
-        """Birth and death years for people whose date lives only in the blob.
-
-        Mirrors VITALS_CTE's semantics -- earliest birth-ish and earliest death-ish
-        year per person -- for the rows that CTE has to skip.
-        """
-        found: dict[int, dict[str, int]] = {}
-        for row in self.db.query(RECOVERABLE_VITALS_SQL):
-            parts = pb_date_parts(row["date"])
-            if not parts:
-                continue
-            slot = "birth" if row["token"] in BIRTH_TOKENS else "death"
-            years = found.setdefault(row["individual_id"], {})
-            year = parts["year"]
-            if slot not in years or year < years[slot]:
-                years[slot] = year
-        return found
-
     def _load(self) -> None:
-        recovered = self._recovered_vitals()
         sql = f"""
         WITH {VITALS_CTE},
         names AS (
@@ -155,14 +135,8 @@ class TreeIndex:
         WHERE i.delete_flag = 0
         """
         for row in self.db.query(sql, {"lang": self.lang}):
-            # The columns win where they have an answer; the blob only fills gaps.
-            fallback = recovered.get(row["individual_id"], {})
             birth_year = year_of(row["birth_sd"])
             death_year = year_of(row["death_sd"])
-            if birth_year is None:
-                birth_year = fallback.get("birth")
-            if death_year is None:
-                death_year = fallback.get("death")
 
             person = Person(
                 person_id=row["individual_id"],

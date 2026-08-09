@@ -14,7 +14,6 @@ from ftb_mcp.decode import (
     UNKNOWN_DATE,
     clean_text,
     norm_date,
-    pb_date_parts,
     pb_fields,
     pb_text,
     split_ftb_date,
@@ -35,8 +34,8 @@ DATE_BEFORE = "0A084245462031383536222D0801100118022000280030C00E380040004800500
 DATE_AFTER = "0A084146542031393034222D0801100218022000280030F00E380040004800500058BF843D600068007000780080010088010190019B99EB5A"
 
 # Rows whose display string is empty and whose integer columns are all 999999999,
-# but whose nested struct still holds the date. Fact 501434 (death of Anna ?,
-# 4 MAY 1772) and fact 501395 (birth of Matej Prokes tez Houfek, ABT 1720).
+# while the nested struct still holds a date (4 MAY 1772 and ABT 1720). Such a fact
+# records no date -- the struct is editor state and may belong to another record.
 DATE_LOST_DISPLAY = "0A00222D0801100018002004280530EC0D380040004800500058BF843D60006800700078008001008801019001B0DEBF54"
 DATE_LOST_DISPLAY_ABT = "0A00222D0801100318022000280030B80D380040004800500058BF843D6000680070007800800100880101900182868252"
 
@@ -135,29 +134,32 @@ class TestDates:
         """Field 1 is present but empty; the neighbouring binary must not be read as text."""
         assert pb_text(blob(DATE_LOST_DISPLAY), fields=(1,)) == ""
 
-    def test_date_is_recovered_from_nested_struct_when_columns_are_blank(self):
-        """Display string gone, every integer column the sentinel -- the struct still knows."""
-        result = norm_date(blob(DATE_LOST_DISPLAY), UNKNOWN_DATE, UNKNOWN_DATE, UNKNOWN_DATE)
-        assert result["display"] == "4 MAY 1772"
-        assert (result["year"], result["month"], result["day"]) == (1772, 5, 4)
-        assert result["sort_key"] == 17720504, "recovered dates must still sort"
+    def test_blank_columns_yield_no_date_even_though_the_struct_holds_one(self):
+        """The nested struct is the editor's working copy, not the stored fact.
 
-    def test_recovered_date_keeps_its_about_qualifier(self):
-        result = norm_date(blob(DATE_LOST_DISPLAY_ABT), UNKNOWN_DATE, UNKNOWN_DATE, UNKNOWN_DATE)
-        assert result["display"] == "ABT 1720", "a year-only estimate must not gain a false day"
-        assert (result["year"], result["month"], result["day"]) == (1720, None, None)
+        These bytes carry 4 MAY 1772 in field 4 while every column that records a date
+        is empty. Reading it back was how three people came to "die" on their own
+        birthday and one mother acquired her daughter's birth date.
+        """
+        assert norm_date(blob(DATE_LOST_DISPLAY), UNKNOWN_DATE, UNKNOWN_DATE, UNKNOWN_DATE) is None
 
-    def test_integer_columns_still_win_over_the_nested_struct(self):
-        """The struct is a fallback, not an override -- normal rows are unaffected."""
+    def test_a_qualified_struct_date_is_equally_ignored(self):
+        assert (
+            norm_date(blob(DATE_LOST_DISPLAY_ABT), UNKNOWN_DATE, UNKNOWN_DATE, UNKNOWN_DATE) is None
+        )
+
+    def test_rows_that_do_record_a_date_are_untouched(self):
+        """Removing the fallback must not disturb the ordinary path."""
         result = norm_date(blob(DATE_1791), 17910319, 17910319, 17910319)
         assert result["display"] == "19 MAR 1791"
+        assert (result["year"], result["month"], result["day"]) == (1791, 3, 19)
         assert result["sort_key"] == 17910319
 
-    def test_nested_struct_without_a_real_year_is_not_invented(self):
-        parts = pb_date_parts(blob(DATE_1791))
-        assert parts is not None and parts["year"] == 1791
-        assert pb_date_parts("plain text") is None
-        assert pb_date_parts("") is None
+    def test_a_date_surviving_only_in_the_columns_is_still_read(self):
+        """Only field 4 is off-limits; an empty display with real columns still counts."""
+        result = norm_date(blob(DATE_LOST_DISPLAY), 17720504, 17720504, 17720504)
+        assert (result["year"], result["month"], result["day"]) == (1772, 5, 4)
+        assert result["sort_key"] == 17720504
 
     def test_partial_date_keeps_year_drops_bogus_month_day(self):
         assert split_ftb_date(18559999) == {"year": 1855, "month": None, "day": None}
