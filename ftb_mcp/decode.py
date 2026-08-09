@@ -47,8 +47,7 @@ _EMBEDDED_YEAR = 6
 _EMBEDDED_QUALIFIER = 2
 _EMBEDDED_NO_YEAR = 999999
 _QUALIFIER_PREFIX = {1: "BEF", 2: "AFT", 3: "ABT", 4: "EST"}
-_GED_MONTHS = ("JAN", "FEB", "MAR", "APR", "MAY", "JUN",
-               "JUL", "AUG", "SEP", "OCT", "NOV", "DEC")
+_GED_MONTHS = ("JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC")
 
 _TAG_RE = re.compile(r"<[^>]+>")
 _BREAK_RE = re.compile(r"<\s*(?:br\s*/?|/\s*p|/\s*div|/\s*li)\s*>", re.IGNORECASE)
@@ -235,9 +234,7 @@ def pb_date_parts(value: str | bytes | None) -> dict[str, object] | None:
     if not looks_like_protobuf(raw):
         return None
     try:
-        nested = next(
-            (v for v in pb_fields(raw).get(4, []) if isinstance(v, bytes)), None
-        )
+        nested = next((v for v in pb_fields(raw).get(4, []) if isinstance(v, bytes)), None)
         inner = pb_fields(nested) if nested else None
     except ValueError:
         return None
@@ -300,9 +297,7 @@ def norm_date(
             display = format_date_parts(embedded)
             parts = {key: embedded[key] for key in ("year", "month", "day")}
             sort_key = (
-                embedded["year"] * 10000
-                + (embedded["month"] or 0) * 100
-                + (embedded["day"] or 0)
+                embedded["year"] * 10000 + (embedded["month"] or 0) * 100 + (embedded["day"] or 0)
             )
 
     if not display and parts["year"] is None and lower["year"] is None and upper["year"] is None:

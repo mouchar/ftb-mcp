@@ -195,10 +195,21 @@ FACTS = [
     (27, 11, "BIRT", "", "", "1768", 17680000, 17680000, 17680000, 1, "", "", 0),
     # Death date survives only inside the blob: sorted_date and both bounds are the
     # unknown sentinel, so any reader that trusts the columns alone reports no date.
-    # fmt: off
-    (36, 11, "DEAT", "", "", DATE_LOST_DISPLAY,
-     UNKNOWN_DATE, UNKNOWN_DATE, UNKNOWN_DATE, 1, "", "", 0),
-    # fmt: on
+    (
+        36,
+        11,
+        "DEAT",
+        "",
+        "",
+        DATE_LOST_DISPLAY,
+        UNKNOWN_DATE,
+        UNKNOWN_DATE,
+        UNKNOWN_DATE,
+        1,
+        "",
+        "",
+        0,
+    ),
     (28, 12, "BIRT", "", "", "1800", 18000000, 18000000, 18000000, 3, "", "", 0),
     (29, 14, "BIRT", "", "", "1770", 17700000, 17700000, 17700000, 1, "", "", 0),
     (30, 15, "BIRT", "", "", "1740", 17400000, 17400000, 17400000, 1, "", "", 0),
