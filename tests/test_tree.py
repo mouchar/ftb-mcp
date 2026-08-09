@@ -88,8 +88,12 @@ class TestIndex:
     def test_undocumented_living_status_degrades_legibly(self, index: TreeIndex):
         assert index.people[ZAHADA].summary()["living_status"] == "unknown (7)"
 
-    def test_vital_year_recovered_when_only_the_blob_has_it(self, db, index: TreeIndex):
-        """Tomáš's death sits in the blob alone; the columns all read unknown."""
+    def test_a_year_living_only_in_the_blob_is_not_a_recorded_year(self, db, index: TreeIndex):
+        """Tomáš's death date exists only in the blob's editor struct.
+
+        Every column that records a date reads unknown, so his death year is unknown.
+        The struct is not evidence: it can hold a date belonging to another record.
+        """
         columns = db.query(
             "SELECT sorted_date, lower_bound_search_date, upper_bound_search_date "
             "FROM individual_fact_main_data WHERE individual_id = ? AND token = 'DEAT'",
@@ -102,14 +106,13 @@ class TestIndex:
                 "upper_bound_search_date": 999999999,
             }
         ], "fixture must keep this date only in the blob, or the test proves nothing"
-        assert index.people[TOMAS].death_year == 1772
+        assert index.people[TOMAS].death_year is None
 
-    def test_recovered_year_is_searchable_by_range(self, index: TreeIndex):
+    def test_a_blob_only_year_does_not_answer_a_range_search(self, index: TreeIndex):
         found = index.search(death_year_from=1772, death_year_to=1772)
-        assert TOMAS in {person.person_id for person in found}
+        assert TOMAS not in {person.person_id for person in found}
 
-    def test_columns_still_win_over_the_blob(self, index: TreeIndex):
-        """Recovery fills gaps; it must never override a year the columns supply."""
+    def test_years_the_columns_supply_are_unaffected(self, index: TreeIndex):
         assert index.people[SIMON].birth_year == 1735
         assert index.people[SIMON].death_year == 1791
 
