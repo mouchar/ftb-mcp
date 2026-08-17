@@ -24,7 +24,7 @@ classifiers = [
 dependencies = [
     "ged4py>=0.5",
     "mcp>=2.0.0",
-    "uvicorn>=0.30",
+    "uvicorn>=0.52.3",
 ]
 
 [project.urls]
@@ -38,7 +38,7 @@ ftb-mcp = "ftb_mcp.server:main"
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
-    "ruff>=0.6",
+    "ruff>=0.16.3",
 ]
 
 [build-system]
