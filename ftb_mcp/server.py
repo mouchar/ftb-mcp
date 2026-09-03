@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 
 from . import queries
 from .db import FtbDatabase, FtbDatabaseError
@@ -86,7 +87,7 @@ class _State:
 
     def database(self) -> FtbDatabase:
         if self.db is None:
-            raise RuntimeError("No tree is open. Start the server with --db-path or --gedcom-path.")
+            raise ToolError("No tree is open. Start the server with --db-path or --gedcom-path.")
         return self.db
 
     def lang(self, requested: str | None) -> int:
@@ -116,7 +117,7 @@ def _pick(requested: list[str] | None, allowed: tuple[str, ...]) -> list[str]:
         return list(allowed)
     chosen = [item for item in requested if item in allowed]
     if not chosen:
-        raise ValueError(f"None of {requested} are valid; choose from {list(allowed)}")
+        raise ToolError(f"None of {requested} are valid; choose from {list(allowed)}")
     return chosen
 
 
@@ -124,7 +125,7 @@ def _person_or_error(index: TreeIndex, person_id: int):
     try:
         return index.require(person_id)
     except KeyError as exc:
-        raise ValueError(str(exc)) from exc
+        raise ToolError(str(exc)) from exc
 
 
 # ------------------------------------------------------------------ discovery tools
@@ -475,7 +476,7 @@ def get_family(family_id: int, language: str | None = None) -> dict[str, Any]:
 
     record = queries.family_records(db, [family_id]).get(family_id)
     if record is None:
-        raise ValueError(f"No family with id {family_id} in this tree")
+        raise ToolError(f"No family with id {family_id} in this tree")
 
     members = queries.family_members(db, [family_id]).get(family_id, [])
     detailed = [
@@ -539,7 +540,7 @@ def get_citations(
         return {"person_id": person_id, "returned": len(results), "results": results}
 
     if source_id is None:
-        raise ValueError("Provide person_id, source_id, or both")
+        raise ToolError("Provide person_id, source_id, or both")
 
     rows = db.query(
         "SELECT t.entity_id FROM citation_main_data c "
