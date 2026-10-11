@@ -363,6 +363,11 @@ def _child_text(record: Record, tag: str) -> str:
     return _text(record.sub_tag(tag, follow=False))
 
 
+def _name_key(name: str) -> str:
+    """A name compared without case and without GIVN's comma separators."""
+    return " ".join(name.replace(",", " ").split()).casefold()
+
+
 class _Importer:
     """Walks GEDCOM records and writes FTB-shaped rows."""
 
@@ -578,15 +583,24 @@ class _Importer:
             return _child_text(primary, tag) if primary is not None else ""
 
         first, last, suffix = part("GIVN"), part("SURN"), part("NSFX")
-        if primary is not None and not (first or last):
-            # No GIVN/SURN sub-records: fall back to the "Given /Surname/ Suffix" form
-            # of the NAME value, which ged4py has already split into a tuple.
+        if primary is not None:
+            # The "Given /Surname/ Suffix" form of the NAME value, which ged4py has
+            # already split into a tuple.
             value = primary.value
             parts = value if isinstance(value, tuple) else (str(value or ""), "", "")
             padded = (*parts, "", "")
-            first = (padded[0] or "").strip()
-            last = (padded[1] or "").strip()
-            suffix = suffix or (padded[2] or "").strip()
+            name_first = (padded[0] or "").strip()
+            name_last = (padded[1] or "").strip()
+            if not (first or last):
+                first, last = name_first, name_last
+                suffix = suffix or (padded[2] or "").strip()
+            else:
+                # GIVN separates given names with commas and some programs (Ancestris)
+                # upper-case SURN; the NAME value spells the same name for display.
+                if name_first and _name_key(name_first) == _name_key(first):
+                    first = name_first
+                if name_last and _name_key(name_last) == _name_key(last):
+                    last = name_last
 
         data_set_id = self._id("data_set")
         self._insert(
