@@ -238,6 +238,28 @@ def test_a_minimal_well_formed_file_imports(tmp_path):
         assert index.people[spouses[0][0]].full_name == "William King"
 
 
+def test_name_value_spells_comma_separated_and_upper_case_name_parts(tmp_path):
+    """Ancestris writes GIVN "Caroline, Bouvier" and SURN "KENNEDY"."""
+    path = tmp_path / "ancestris.ged"
+    path.write_bytes(
+        b"0 HEAD\r\n1 CHAR UTF-8\r\n1 LANG English\r\n"
+        b"0 @I1@ INDI\r\n1 NAME Caroline Bouvier /Kennedy/\r\n"
+        b"2 GIVN Caroline, Bouvier\r\n2 SURN KENNEDY\r\n"
+        b"0 @I2@ INDI\r\n1 NAME Jan, Johann /Novak/\r\n2 GIVN Jan, Johann\r\n2 SURN Novak\r\n"
+        b"0 @I3@ INDI\r\n1 NAME Ann /Smith/\r\n2 GIVN Anna\r\n2 SURN SMITHE\r\n"
+        b"0 TRLR\r\n"
+    )
+    with open_gedcom(path) as database:
+        index = TreeIndex(database, lang=0)
+        caroline = index.search(last_name="Kennedy")[0]
+        assert (caroline.first_name, caroline.last_name) == ("Caroline Bouvier", "Kennedy")
+        # Commas in the NAME value itself are kept: there they mark name variants.
+        assert index.search(last_name="Novak")[0].first_name == "Jan, Johann"
+        # A NAME value that differs from GIVN/SURN does not override them.
+        anna = index.search(last_name="Smithe")[0]
+        assert (anna.first_name, anna.last_name) == ("Anna", "SMITHE")
+
+
 def test_record_counts_match_the_fixture(gedcom_db: FtbDatabase):
     assert gedcom_db.count("individual_main_data") == 14
     assert gedcom_db.count("family_main_data") == 4
