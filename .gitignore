@@ -26,6 +26,7 @@ htmlcov/
 
 # Local editor and agent settings
 .mcp.json
-.claude/
+.claude/*
+!.claude/skills/
 .idea/
 .vscode/

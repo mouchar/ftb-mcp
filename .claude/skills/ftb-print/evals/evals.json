@@ -1,0 +1,71 @@
+{
+  "skill_name": "ftb-print",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Print an A1 family tree poster of Caroline Kennedy's ancestors - she was born 27 Nov 1957. Put in every generation you have.",
+      "expected_output": "Identifies person 36 without asking, collects with --locale en, reports the summary in English (64 ancestors, 8 generations, about 9 pt on A1 at full depth), shows the verification table, proposes removing the nickname from John Francis \"Honey Fitz\" Fitzgerald, waits for confirmation; after the simulated answer 'looks good' renders SVG+PDF at full depth.",
+      "files": ["evals/files/kennedy.ged"],
+      "expectations": [
+        "Conversation is in English and collect runs with --locale en",
+        "Person 36 is identified without a disambiguation question",
+        "Table dates use the English form, e.g. '29 May 1917'",
+        "Suffixes are kept: 'John Vernou Bouvier III', 'John Vernou Bouvier Jr.'",
+        "Surnames print in normal case ('John Fitzgerald Kennedy', not 'KENNEDY') and the '(-----)' placeholders print as an empty surname",
+        "Proposes removing the nickname \"Honey Fitz\" from the given names",
+        "Mentions that James Fitzgerald appears twice in the tree",
+        "Chart title is 'Ancestors of Caroline Bouvier Kennedy'",
+        "Does not render before the user confirms the data",
+        "Renders all 8 generations and boxes print 'b.' and 'd.' lines"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Ich möchte eine Ahnentafel von John Fitzgerald Kennedy zum Ausdrucken. Bitte 3 Generationen.",
+      "expected_output": "Two matches (person 4, born 1917, and person 37, Jr., born 1960) -> asks in German which one is meant, listing birth dates and parents; after the simulated answer 'den Präsidenten, geboren 1917' uses person 4 with --locale de, depth 3.",
+      "files": ["evals/files/kennedy.ged"],
+      "expectations": [
+        "Asks a disambiguation question in German listing both John Fitzgerald Kennedy candidates",
+        "Collects person 4 with --locale de",
+        "Table and render use --depth 3; Patrick Kennedy (born about 1823) is among the deepest ancestors",
+        "Dates use the German form, e.g. '29.5.1917' and 'um 1823', and boxes use '*' and '†'",
+        "Chart title is in German, e.g. 'Vorfahren von John Fitzgerald Kennedy'"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Vytiskni mi rodokmen Josepha Patricka Kennedyho, narozeného 1888.",
+      "expected_output": "Three people named Joseph Patrick Kennedy, but only person 1 was born in 1888; only a year was given -> asks in Czech for a quick confirmation; after 'ano' collects with --locale cs, Czech table and chart, title declined into the genitive.",
+      "files": ["evals/files/kennedy.ged"],
+      "expectations": [
+        "Conversation is in Czech",
+        "Asks for confirmation of person 1 before collecting, because only the birth year was given",
+        "Collects with --locale cs; dates like '6.9.1888' and 'kol. 1823', boxes use 'n.' and 'z.'",
+        "Chart title is declined, e.g. 'Rodina Josepha Patricka Kennedyho'"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Je voudrais imprimer l'arbre généalogique de Rose Elizabeth Fitzgerald, née le 22 juillet 1890.",
+      "expected_output": "No bundled French locale -> copies locales/en.json into the person's directory, translates every key into French, identifies person 2 without asking, collects with --locale pointing at that file; no missing-keys warning.",
+      "files": ["evals/files/kennedy.ged"],
+      "expectations": [
+        "Conversation is in French",
+        "Creates a French locale file under family-trees/<slug>/ and passes its path to --locale",
+        "collect prints no 'missing keys filled from English' warning",
+        "Dates use French month names, e.g. '22 juillet 1890'",
+        "The table headers, review notes and chart title are in French"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "/ftb-print Kennedy Caroline 27.11.1957",
+      "expected_output": "The request reveals no language -> asks which language to use for the conversation and the chart before collecting anything.",
+      "files": ["evals/files/kennedy.ged"],
+      "expectations": [
+        "Asks for the language before running collect",
+        "Mentions that any language is possible"
+      ]
+    }
+  ]
+}
