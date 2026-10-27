@@ -438,6 +438,7 @@ def load(path: str) -> dict:
 
 
 def save(tree: dict, path: str) -> None:
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
     Path(path).write_text(json.dumps(tree, ensure_ascii=False, indent=1) + "\n")
 
 
@@ -968,6 +969,7 @@ def cmd_table(args: argparse.Namespace) -> None:
             + "\n"
         )
     if args.out:
+        Path(args.out).parent.mkdir(parents=True, exist_ok=True)
         Path(args.out).write_text(text)
         print(f"Table saved: {args.out} ({len(rows) - 2} rows)")
     else:
@@ -1016,6 +1018,7 @@ def cmd_render(args: argparse.Namespace) -> None:
     nodes = trimmed(tree, args.depth)
     svg, f = render_svg(tree, nodes, args)
     out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(svg)
     print(f"SVG: {out}")
     if not args.no_pdf:
